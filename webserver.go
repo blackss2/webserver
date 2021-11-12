@@ -247,6 +247,12 @@ func (web *WebServer) Static(prefix string, folder string, m ...fiber.Handler) {
 		}
 	}
 
+	embedPathMap := map[string]bool{}
+	fs.WalkDir(web.embedFiles, ".", func(path string, d fs.DirEntry, err error) error {
+		embedPathMap[filepath.ToSlash(path)] = true
+		return nil
+	})
+
 	root := path.Join(web.directory, folder)
 	h := func(c *fiber.Ctx) error {
 		fname := c.Params("*")
@@ -254,7 +260,9 @@ func (web *WebServer) Static(prefix string, folder string, m ...fiber.Handler) {
 		if web.watch {
 			return c.SendFile(fpath)
 		} else if web.embedFiles != nil {
-			if data, err := web.embedFiles.ReadFile(fpath); err != nil {
+			if !embedPathMap[fpath] {
+				return c.SendStatus(http.StatusNotFound)
+			} else if data, err := web.embedFiles.ReadFile(fpath); err != nil {
 				return c.SendStatus(http.StatusNotFound)
 			} else {
 				if t, err := time.Parse(http.TimeFormat, c.Get(fiber.HeaderIfModifiedSince)); err == nil && executableModTime.Before(t.Add(1*time.Second)) {
@@ -308,17 +316,20 @@ func (web *WebServer) Static(prefix string, folder string, m ...fiber.Handler) {
 	}
 	if prefix == "/" {
 		web.app.Get("/*", append([]fiber.Handler{func(c *fiber.Ctx) error {
-			if err := h(c); err != nil {
-				return err
+			fname := c.Params("*")
+			if len(fname) > 0 {
+				if err := h(c); err != nil {
+					return err
+				}
+				status := c.Response().StatusCode()
+				if status != http.StatusNotFound && status != http.StatusForbidden {
+					return nil
+				}
+				// Reset response to default
+				c.Set(fiber.HeaderContentType, "")
+				c.Response().SetStatusCode(http.StatusOK)
+				c.Response().SetBodyString("")
 			}
-			status := c.Response().StatusCode()
-			if status != http.StatusNotFound && status != http.StatusForbidden {
-				return nil
-			}
-			// Reset response to default
-			c.Set(fiber.HeaderContentType, "")
-			c.Response().SetStatusCode(http.StatusOK)
-			c.Response().SetBodyString("")
 			// Next middleware
 			return c.Next()
 		}}, m...)...)
