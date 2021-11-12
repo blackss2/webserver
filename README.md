@@ -11,9 +11,9 @@ webserver that supports these features based on fiber web server and html engine
 all html and public is under webfiles in exmaple
 
 ex)
-./webfiles/main.html
-./webfiles/public/css/style.css
-./webfiles/public/images/text.images
+- ./webfiles/main.html
+- ./webfiles/public/css/style.css
+- ./webfiles/public/images/text.images
 ```
 package main
 
