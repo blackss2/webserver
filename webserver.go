@@ -85,6 +85,19 @@ func NewWebServer(directory string, embedFiles *embed.FS, cfg *session.Config) *
 		return string(a)
 	})
 
+	if fi, err := os.Stat(web.directory); err == nil && fi.IsDir() {
+		WebPath, err := filepath.Abs(web.directory)
+		if err != nil {
+			log.Fatalln(err)
+		}
+		NewFileWatcher(WebPath, func(ev string, path string) {
+			if strings.HasPrefix(filepath.Ext(path), ".htm") {
+				web.reload = true
+			}
+		})
+		web.watch = true
+	}
+
 	web.app = fiber.New(fiber.Config{
 		ErrorHandler: func(c *fiber.Ctx, err error) error {
 			if err != nil {
@@ -132,18 +145,6 @@ func (web *WebServer) Debug(enabled bool) *WebServer {
 		web.app.Use(recover.New(recover.Config{
 			EnableStackTrace: true,
 		}))
-		if fi, err := os.Stat(web.directory); err == nil && fi.IsDir() {
-			WebPath, err := filepath.Abs(web.directory)
-			if err != nil {
-				log.Fatalln(err)
-			}
-			NewFileWatcher(WebPath, func(ev string, path string) {
-				if strings.HasPrefix(filepath.Ext(path), ".htm") {
-					web.reload = true
-				}
-			})
-			web.watch = true
-		}
 	}
 	web.debug = enabled
 	return web
