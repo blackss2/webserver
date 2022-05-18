@@ -259,7 +259,11 @@ func (web *WebServer) Static(prefix string, folder string, m ...fiber.Handler) {
 		fname := c.Params("*")
 		fpath := path.Join(root, fname)
 		if web.watch {
-			return c.SendFile("./" + fpath)
+			absPath, err := filepath.Abs(fpath)
+			if err != nil {
+				return err
+			}
+			return c.SendFile(absPath)
 		} else if web.embedFiles != nil {
 			if !embedPathMap[fpath] {
 				return c.SendStatus(http.StatusNotFound)
